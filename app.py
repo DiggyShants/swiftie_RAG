@@ -13,7 +13,7 @@ from langchain_classic.chains.retrieval import create_retrieval_chain
 load_dotenv(find_dotenv())
 
 st.set_page_config(page_title="Swiftie AI", page_icon="🎤")
-st.title("Swiftie AI: Future-Proof Vault 💃")
+st.title("Swiftie AI: Question the Data 💃")
 
 # 2. Connection to Vector Store
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
@@ -65,4 +65,5 @@ if user_input:
         st.write("**Sources used:**")
         for doc in response["context"]:
             st.caption(f"- {doc.metadata['track_name']} ({doc.metadata['album_name']})")
+
 
