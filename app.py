@@ -8,29 +8,13 @@ from dotenv import load_dotenv, find_dotenv
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_classic.chains.retrieval import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains.retrieval import create_retrieval_chain
 
 # =============================================================================
 # 1. ENVIRONMENT & PAGE CONFIGURATION
 # =============================================================================
 load_dotenv(find_dotenv())
-
-# Era-based color themes
-ERA_THEMES = {
-    "All": {"primary": "#FF6B6B", "background": "#1a1a2e", "accent": "#FFD93D"},
-    "Taylor Swift": {"primary": "#7CB342", "background": "#1B5E20", "accent": "#C5E1A5"},
-    "Fearless": {"primary": "#FFD700", "background": "#3d3d00", "accent": "#FFF59D"},
-    "Speak Now": {"primary": "#9C27B0", "background": "#2a1a30", "accent": "#E1BEE7"},
-    "Red": {"primary": "#D32F2F", "background": "#2a1a1a", "accent": "#FFCDD2"},
-    "1989": {"primary": "#03A9F4", "background": "#1a2a3d", "accent": "#B3E5FC"},
-    "reputation": {"primary": "#212121", "background": "#0a0a0a", "accent": "#757575"},
-    "Lover": {"primary": "#FF69B4", "background": "#2d1a2a", "accent": "#FFB6C1"},
-    "folklore": {"primary": "#9E9E9E", "background": "#1a1a1a", "accent": "#E0E0E0"},
-    "evermore": {"primary": "#8D6E63", "background": "#1a1612", "accent": "#D7CCC8"},
-    "Midnights": {"primary": "#1A237E", "background": "#0d0d1a", "accent": "#7986CB"},
-    "TTPD": {"primary": "#F5F5DC", "background": "#1a1a18", "accent": "#FFFAF0"},
-}
 
 # Fun facts and trivia for "Surprise Me" feature
 TAYLOR_TRIVIA = [
@@ -42,59 +26,15 @@ TAYLOR_TRIVIA = [
     "'exile' was recorded with Taylor and Bon Iver in separate locations.",
     "Taylor's lucky number is 13—look for it everywhere!",
     "'cardigan', 'august', and 'betty' tell the same story from different perspectives.",
+    "Taylor played Arya Stark's songs in the Game of Thrones cafe scene!",
+    "'Shake It Off' was Taylor's first #1 debut on the Hot 100.",
 ]
 
-def get_era_css(era: str) -> str:
-    """Generate CSS based on selected era theme."""
-    theme = ERA_THEMES.get(era, ERA_THEMES["All"])
-    return f"""
-    <style>
-        .stApp {{
-            background-color: {theme['background']};
-        }}
-        .stButton > button {{
-            background-color: {theme['primary']};
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 0.5rem 1rem;
-            transition: all 0.3s ease;
-        }}
-        .stButton > button:hover {{
-            background-color: {theme['accent']};
-            color: black;
-            transform: scale(1.05);
-        }}
-        .chat-message {{
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-        }}
-        .user-message {{
-            background-color: {theme['primary']}33;
-            border-left: 4px solid {theme['primary']};
-        }}
-        .assistant-message {{
-            background-color: {theme['accent']}22;
-            border-left: 4px solid {theme['accent']};
-        }}
-        h1 {{
-            color: {theme['primary']} !important;
-        }}
-        .source-expander {{
-            background-color: {theme['primary']}11;
-            border-radius: 8px;
-            padding: 0.5rem;
-            margin: 0.25rem 0;
-        }}
-        .sidebar .stSelectbox label {{
-            color: {theme['accent']};
-        }}
-        .theme-button {{
-            margin: 0.25rem;
-        }}
-    </style>
-    """
+# Albums list
+ALBUMS = [
+    "All", "Taylor Swift", "Fearless", "Speak Now", "Red", "1989", 
+    "reputation", "Lover", "folklore", "evermore", "Midnights", "TTPD"
+]
 
 # =============================================================================
 # 2. SESSION STATE INITIALIZATION
@@ -109,6 +49,8 @@ def initialize_session_state():
         st.session_state.similarity_threshold = 0.7
     if "num_sources" not in st.session_state:
         st.session_state.num_sources = 5
+    if "pending_query" not in st.session_state:
+        st.session_state.pending_query = None
 
 initialize_session_state()
 
@@ -122,25 +64,206 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Apply era-based styling
-st.markdown(get_era_css(st.session_state.selected_era), unsafe_allow_html=True)
+# Custom CSS for fixed header, sticky footer, and better contrast
+st.markdown("""
+<style>
+    /* Import a nice font */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+    
+    /* Main app styling - light theme for readability */
+    .stApp {
+        background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%);
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    /* Fixed Header */
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: linear-gradient(90deg, #ec4899 0%, #f43f5e 100%);
+        padding: 1rem 2rem;
+        box-shadow: 0 4px 20px rgba(236, 72, 153, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    
+    .fixed-header h1 {
+        color: white !important;
+        font-size: 1.75rem !important;
+        font-weight: 700 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .fixed-header .subtitle {
+        color: rgba(255,255,255,0.9);
+        font-size: 0.9rem;
+        margin-left: 1rem;
+    }
+    
+    /* Add padding to main content to account for fixed header */
+    .main .block-container {
+        padding-top: 5rem !important;
+        padding-bottom: 10rem !important;
+    }
+    
+    /* Chat message styling */
+    .stChatMessage {
+        background: white !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05) !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Better text contrast */
+    .stMarkdown, .stChatMessage p, .stChatMessage div {
+        color: #1f2937 !important;
+    }
+    
+    h1, h2, h3, h4 {
+        color: #831843 !important;
+    }
+    
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background: white !important;
+        border-right: 2px solid #fce7f3;
+    }
+    
+    section[data-testid="stSidebar"] .stMarkdown {
+        color: #374151 !important;
+    }
+    
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #ec4899 !important;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+    }
+    
+    /* Source expander styling */
+    .streamlit-expanderHeader {
+        background: #fdf2f8 !important;
+        border-radius: 8px !important;
+        color: #831843 !important;
+    }
+    
+    .streamlit-expanderContent {
+        background: white !important;
+        border: 1px solid #fce7f3 !important;
+        color: #374151 !important;
+    }
+    
+    /* Slider styling */
+    .stSlider > div > div {
+        background: #fce7f3 !important;
+    }
+    
+    .stSlider > div > div > div {
+        background: #ec4899 !important;
+    }
+    
+    /* Chat input styling - make it stand out */
+    .stChatInput {
+        border-color: #ec4899 !important;
+    }
+    
+    .stChatInput > div {
+        border-color: #fce7f3 !important;
+        background: white !important;
+    }
+    
+    /* Hide default header elements */
+    header[data-testid="stHeader"] {
+        display: none;
+    }
+    
+    /* Metrics styling */
+    [data-testid="stMetricValue"] {
+        color: #ec4899 !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: #6b7280 !important;
+    }
+    
+    /* Select box styling */
+    .stSelectbox > div > div {
+        background: white !important;
+        border-color: #fce7f3 !important;
+    }
+    
+    /* Checkbox styling */
+    .stCheckbox label {
+        color: #374151 !important;
+    }
+    
+    /* Theme buttons section styling */
+    .theme-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-top: 1rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 1px solid #fce7f3;
+    }
+    
+    .theme-section h5 {
+        color: #ec4899 !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Expander text color fix */
+    .streamlit-expanderContent p,
+    .streamlit-expanderContent div,
+    .streamlit-expanderContent span {
+        color: #374151 !important;
+    }
+</style>
+
+<!-- Fixed Header -->
+<div class="fixed-header">
+    <span style="font-size: 2rem;">🎤</span>
+    <h1>Swiftie AI: The Vault</h1>
+    <span class="subtitle">Ask me anything about Taylor's lyrics!</span>
+</div>
+""", unsafe_allow_html=True)
 
 # =============================================================================
 # 4. SIDEBAR CONFIGURATION
 # =============================================================================
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/en/f/f8/Taylor_Swift_-_1989_%28Taylor%27s_Version%29.png", width=150)
-    st.title("🎸 Swiftie Settings")
+    st.title("🎸 Settings")
     
     st.markdown("---")
     
     # Era/Album Filter
     st.subheader("🎵 Filter by Era")
-    albums = list(ERA_THEMES.keys())
     selected_album = st.selectbox(
         "Select an album:",
-        albums,
-        index=albums.index(st.session_state.selected_era),
+        ALBUMS,
+        index=ALBUMS.index(st.session_state.selected_era),
         help="Filter lyrics by specific album or search all"
     )
     st.session_state.selected_era = selected_album
@@ -151,7 +274,7 @@ with st.sidebar:
     st.subheader("⚙️ Search Settings")
     
     st.session_state.num_sources = st.slider(
-        "Number of sources to retrieve:",
+        "Number of sources:",
         min_value=1,
         max_value=10,
         value=st.session_state.num_sources,
@@ -164,13 +287,13 @@ with st.sidebar:
         max_value=1.0,
         value=st.session_state.similarity_threshold,
         step=0.05,
-        help="Higher = more strict matching, Lower = broader results"
+        help="Higher = stricter matching"
     )
     
     use_mmr = st.checkbox(
-        "Use diverse results (MMR)",
+        "Diverse results (MMR)",
         value=True,
-        help="Maximum Marginal Relevance reduces redundant results"
+        help="Reduces redundant results"
     )
     
     st.markdown("---")
@@ -178,11 +301,11 @@ with st.sidebar:
     # Conversation Controls
     st.subheader("💬 Conversation")
     
-    if st.button("🗑️ Clear Chat History", use_container_width=True):
+    if st.button("🗑️ Clear Chat", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
     
-    if st.button("📥 Export Conversation", use_container_width=True):
+    if st.button("📥 Export Chat", use_container_width=True):
         if st.session_state.messages:
             export_text = f"# Swiftie AI Conversation\n"
             export_text += f"Exported: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
@@ -190,21 +313,24 @@ with st.sidebar:
                 role = "You" if msg["role"] == "user" else "Swiftie AI"
                 export_text += f"**{role}:** {msg['content']}\n\n"
             st.download_button(
-                label="💾 Download as Markdown",
+                label="💾 Download",
                 data=export_text,
                 file_name=f"swiftie_chat_{datetime.now().strftime('%Y%m%d_%H%M')}.md",
                 mime="text/markdown",
                 use_container_width=True
             )
         else:
-            st.info("No messages to export yet!")
+            st.info("No messages yet!")
     
     st.markdown("---")
     
-    # Fun Stats
-    st.subheader("📊 Session Stats")
-    st.metric("Questions Asked", len([m for m in st.session_state.messages if m["role"] == "user"]))
-    st.metric("Current Era", st.session_state.selected_era)
+    # Stats
+    st.subheader("📊 Stats")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Questions", len([m for m in st.session_state.messages if m["role"] == "user"]))
+    with col2:
+        st.metric("Era", st.session_state.selected_era if st.session_state.selected_era != "All" else "All")
 
 # =============================================================================
 # 5. VECTOR STORE & RETRIEVER SETUP
@@ -290,52 +416,20 @@ def get_rag_chain(retriever):
     return create_retrieval_chain(retriever, question_answer_chain)
 
 # =============================================================================
-# 7. MAIN UI
+# 7. MAIN CHAT INTERFACE
 # =============================================================================
-# Header
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.title("🎤 Swiftie AI: The Vault")
-    st.caption("Ask me anything about Taylor Swift's lyrics across all eras!")
 
-with col2:
-    # Surprise Me Button
-    if st.button("🎲 Surprise Me!", use_container_width=True):
-        trivia = random.choice(TAYLOR_TRIVIA)
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": f"✨ **Fun Fact:** {trivia}",
-            "sources": []
-        })
+# Welcome message (if no messages yet)
+if not st.session_state.messages:
+    st.markdown("""
+    <div style="text-align: center; padding: 3rem; color: #6b7280;">
+        <p style="font-size: 3rem; margin-bottom: 1rem;">💫</p>
+        <h3 style="color: #ec4899;">Welcome to the Vault!</h3>
+        <p style="color: #6b7280;">Ask me anything about Taylor Swift's lyrics, or click a theme button below to get started.</p>
+        <p style="font-size: 0.85rem; margin-top: 1rem; color: #9ca3af;">Try: "What songs mention rain?" or "Tell me about songs with autumn imagery"</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown("---")
-
-# =============================================================================
-# 8. THEME EXPLORER
-# =============================================================================
-st.subheader("🔍 Quick Theme Explorer")
-
-theme_cols = st.columns(6)
-themes = [
-    ("💔", "Heartbreak"),
-    ("🗽", "New York"),
-    ("🍂", "Autumn"),
-    ("✨", "Love"),
-    ("😈", "Revenge"),
-    ("🌙", "Night"),
-]
-
-theme_query = None
-for i, (emoji, theme) in enumerate(themes):
-    with theme_cols[i]:
-        if st.button(f"{emoji} {theme}", use_container_width=True, key=f"theme_{theme}"):
-            theme_query = f"What does Taylor say about {theme.lower()}?"
-
-st.markdown("---")
-
-# =============================================================================
-# 9. CHAT INTERFACE
-# =============================================================================
 # Display chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -345,20 +439,55 @@ for message in st.session_state.messages:
         if message["role"] == "assistant" and "sources" in message and message["sources"]:
             with st.expander("📚 View Sources", expanded=False):
                 for source in message["sources"]:
-                    st.markdown(f"""
-                    <div class="source-expander">
-                        <strong>🎵 {source['track']} ({source['album']})</strong>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"**🎵 {source['track']}** ({source['album']})")
                     st.caption(source['lyrics'][:500] + "..." if len(source['lyrics']) > 500 else source['lyrics'])
                     st.markdown("---")
 
-# Chat input
+# =============================================================================
+# 8. BOTTOM SECTION: THEME BUTTONS + INPUT
+# =============================================================================
+st.markdown("---")
+
+# Theme explorer section
+st.markdown('<div class="theme-section">', unsafe_allow_html=True)
+st.markdown("##### 🔍 Quick Themes")
+
+theme_cols = st.columns(7)
+themes = [
+    ("💔", "Heartbreak"),
+    ("🗽", "New York"),
+    ("🍂", "Autumn"),
+    ("✨", "Love"),
+    ("😈", "Revenge"),
+    ("🌙", "Night"),
+    ("🎲", "Surprise!"),
+]
+
+for i, (emoji, theme) in enumerate(themes):
+    with theme_cols[i]:
+        if theme == "Surprise!":
+            if st.button(f"{emoji} {theme}", key=f"theme_{theme}", use_container_width=True):
+                trivia = random.choice(TAYLOR_TRIVIA)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": f"✨ **Fun Fact:** {trivia}",
+                    "sources": []
+                })
+                st.rerun()
+        else:
+            if st.button(f"{emoji} {theme}", key=f"theme_{theme}", use_container_width=True):
+                st.session_state.pending_query = f"What does Taylor say about {theme.lower()}?"
+                st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Chat input at the very bottom
 user_input = st.chat_input("Ask about Taylor's lyrics...")
 
-# Handle theme button clicks
-if theme_query:
-    user_input = theme_query
+# Check for pending query from theme buttons
+if st.session_state.pending_query:
+    user_input = st.session_state.pending_query
+    st.session_state.pending_query = None
 
 # Process user input
 if user_input:
@@ -402,11 +531,7 @@ if user_input:
                             "lyrics": lyrics
                         })
                         
-                        st.markdown(f"""
-                        <div class="source-expander">
-                            <strong>🎵 {track} ({album})</strong>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(f"**🎵 {track}** ({album})")
                         st.caption(lyrics[:500] + "..." if len(lyrics) > 500 else lyrics)
                         st.markdown("---")
             
@@ -417,20 +542,6 @@ if user_input:
                 "sources": sources
             })
 
-# =============================================================================
-# 10. FOOTER
-# =============================================================================
-st.markdown("---")
-footer_cols = st.columns(3)
-
-with footer_cols[0]:
-    st.caption("Built with ❤️ for Swifties everywhere")
-
-with footer_cols[1]:
-    st.caption(f"Currently exploring: **{st.session_state.selected_era}** era")
-
-with footer_cols[2]:
-    st.caption("Powered by LangChain + Pinecone + OpenAI")
 
 
 
