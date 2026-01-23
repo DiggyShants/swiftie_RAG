@@ -4,12 +4,12 @@ import random
 from datetime import datetime
 from dotenv import load_dotenv, find_dotenv
 
-# Modern Modular Imports
+# LangChain Imports - using LCEL (LangChain Expression Language)
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains.retrieval import create_retrieval_chain
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 
 # =============================================================================
 # 1. ENVIRONMENT & PAGE CONFIGURATION
@@ -51,6 +51,8 @@ def initialize_session_state():
         st.session_state.num_sources = 5
     if "pending_query" not in st.session_state:
         st.session_state.pending_query = None
+    if "last_sources" not in st.session_state:
+        st.session_state.last_sources = []
 
 initialize_session_state()
 
@@ -184,7 +186,7 @@ st.markdown("""
         background: #ec4899 !important;
     }
     
-    /* Chat input styling - make it stand out */
+    /* Chat input styling */
     .stChatInput {
         border-color: #ec4899 !important;
     }
@@ -366,7 +368,7 @@ def get_retriever(album_filter: str, k: int, use_mmr: bool, score_threshold: flo
         )
 
 # =============================================================================
-# 6. SYSTEM PROMPT & CHAIN SETUP
+# 6. SYSTEM PROMPT & CHAIN SETUP (Using LCEL)
 # =============================================================================
 SYSTEM_PROMPT = """You are a passionate Taylor Swift expert and lyric analyst. Your role is to help fans explore Taylor's discography by answering questions using the retrieved lyrics provided below.
 
@@ -400,7 +402,7 @@ Context:
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", SYSTEM_PROMPT),
-    ("human", "{input}"),
+    ("human", "{question}"),
 ])
 
 @st.cache_resource
@@ -410,10 +412,36 @@ def get_llm():
 
 llm = get_llm()
 
-def get_rag_chain(retriever):
-    """Create the RAG chain with the given retriever."""
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    return create_retrieval_chain(retriever, question_answer_chain)
+def format_docs(docs):
+    """Format retrieved documents into a single string."""
+    return "\n\n".join(doc.page_content for doc in docs)
+
+def run_rag_query(question: str, retriever):
+    """Run the RAG query and return both the answer and source documents."""
+    # Retrieve documents
+    docs = retriever.invoke(question)
+    
+    # Store sources for later display
+    sources = []
+    for doc in docs:
+        sources.append({
+            "track": doc.metadata.get('track_name', 'Unknown Track'),
+            "album": doc.metadata.get('album_name', 'Unknown Album'),
+            "lyrics": doc.page_content
+        })
+    
+    # Format context
+    context = format_docs(docs)
+    
+    # Build and run the chain using LCEL
+    chain = prompt | llm | StrOutputParser()
+    
+    answer = chain.invoke({
+        "context": context,
+        "question": question
+    })
+    
+    return answer, sources
 
 # =============================================================================
 # 7. MAIN CHAT INTERFACE
@@ -509,40 +537,23 @@ if user_input:
                 score_threshold=st.session_state.similarity_threshold
             )
             
-            # Get RAG chain and invoke
-            rag_chain = get_rag_chain(retriever)
-            response = rag_chain.invoke({"input": user_input})
+            # Run RAG query
+            answer, sources = run_rag_query(user_input, retriever)
             
             # Display the answer
-            st.markdown(response["answer"])
+            st.markdown(answer)
             
-            # Prepare sources for storage and display
-            sources = []
-            if response["context"]:
+            # Show sources
+            if sources:
                 with st.expander("📚 View Sources", expanded=False):
-                    for doc in response["context"]:
-                        track = doc.metadata.get('track_name', 'Unknown Track')
-                        album = doc.metadata.get('album_name', 'Unknown Album')
-                        lyrics = doc.page_content
-                        
-                        sources.append({
-                            "track": track,
-                            "album": album,
-                            "lyrics": lyrics
-                        })
-                        
-                        st.markdown(f"**🎵 {track}** ({album})")
-                        st.caption(lyrics[:500] + "..." if len(lyrics) > 500 else lyrics)
+                    for source in sources:
+                        st.markdown(f"**🎵 {source['track']}** ({source['album']})")
+                        st.caption(source['lyrics'][:500] + "..." if len(source['lyrics']) > 500 else source['lyrics'])
                         st.markdown("---")
             
             # Add assistant message to history
             st.session_state.messages.append({
                 "role": "assistant",
-                "content": response["answer"],
+                "content": answer,
                 "sources": sources
             })
-
-
-
-
-
