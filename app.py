@@ -36,6 +36,9 @@ ALBUMS = [
     "reputation", "Lover", "folklore", "evermore", "Midnights", "TTPD"
 ]
 
+# Source types for filtering
+SOURCE_TYPES = ["All Sources", "Lyrics Only", "Wikipedia Only"]
+
 # =============================================================================
 # 2. SESSION STATE INITIALIZATION
 # =============================================================================
@@ -45,6 +48,8 @@ def initialize_session_state():
         st.session_state.messages = []
     if "selected_era" not in st.session_state:
         st.session_state.selected_era = "All"
+    if "selected_source" not in st.session_state:
+        st.session_state.selected_source = "All Sources"
     if "similarity_threshold" not in st.session_state:
         st.session_state.similarity_threshold = 0.7
     if "num_sources" not in st.session_state:
@@ -242,13 +247,32 @@ st.markdown("""
     .streamlit-expanderContent span {
         color: #374151 !important;
     }
+    
+    /* Source type badges */
+    .source-badge-lyrics {
+        background: #ec4899;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        margin-left: 8px;
+    }
+    
+    .source-badge-wiki {
+        background: #3b82f6;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        margin-left: 8px;
+    }
 </style>
 
 <!-- Fixed Header -->
 <div class="fixed-header">
     <span style="font-size: 2rem;">🎤</span>
     <h1>Swiftie AI: The Vault</h1>
-    <span class="subtitle">Ask me anything about Taylor's lyrics!</span>
+    <span class="subtitle">Ask about Taylor's lyrics & life!</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -260,17 +284,29 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Era/Album Filter
-    st.subheader("🎵 Filter by Era")
-    selected_album = st.selectbox(
-        "Select an album:",
-        ALBUMS,
-        index=ALBUMS.index(st.session_state.selected_era),
-        help="Filter lyrics by specific album or search all"
+    # Source Type Filter (NEW!)
+    st.subheader("📚 Knowledge Source")
+    selected_source = st.selectbox(
+        "Search in:",
+        SOURCE_TYPES,
+        index=SOURCE_TYPES.index(st.session_state.selected_source),
+        help="Choose to search lyrics, Wikipedia biography, or both"
     )
-    st.session_state.selected_era = selected_album
+    st.session_state.selected_source = selected_source
     
     st.markdown("---")
+    
+    # Era/Album Filter (only show when lyrics are included)
+    if st.session_state.selected_source != "Wikipedia Only":
+        st.subheader("🎵 Filter by Era")
+        selected_album = st.selectbox(
+            "Select an album:",
+            ALBUMS,
+            index=ALBUMS.index(st.session_state.selected_era),
+            help="Filter lyrics by specific album or search all"
+        )
+        st.session_state.selected_era = selected_album
+        st.markdown("---")
     
     # Retrieval Settings
     st.subheader("⚙️ Search Settings")
@@ -280,7 +316,7 @@ with st.sidebar:
         min_value=1,
         max_value=10,
         value=st.session_state.num_sources,
-        help="How many lyric passages to search through"
+        help="How many passages to search through"
     )
     
     st.session_state.similarity_threshold = st.slider(
@@ -332,7 +368,8 @@ with st.sidebar:
     with col1:
         st.metric("Questions", len([m for m in st.session_state.messages if m["role"] == "user"]))
     with col2:
-        st.metric("Era", st.session_state.selected_era if st.session_state.selected_era != "All" else "All")
+        source_label = "All" if st.session_state.selected_source == "All Sources" else st.session_state.selected_source.replace(" Only", "")
+        st.metric("Source", source_label)
 
 # =============================================================================
 # 5. VECTOR STORE & RETRIEVER SETUP
@@ -342,19 +379,32 @@ def get_vector_store():
     """Initialize and cache the vector store connection."""
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     return PineconeVectorStore(
-        index_name="taylor-swift-rag",
+        index_name="swiftierag",  # Updated index name
         embedding=embeddings
     )
 
 vector_store = get_vector_store()
 
-def get_retriever(album_filter: str, k: int, use_mmr: bool, score_threshold: float):
+def get_retriever(album_filter: str, source_filter: str, k: int, use_mmr: bool, score_threshold: float):
     """Create a retriever with the specified settings."""
     search_kwargs = {"k": k}
     
-    # Add album filter if not "All"
-    if album_filter != "All":
-        search_kwargs["filter"] = {"album_name": album_filter}
+    # Build filter based on source type and album
+    filters = {}
+    
+    # Source type filter
+    if source_filter == "Lyrics Only":
+        filters["source"] = "lyrics"
+    elif source_filter == "Wikipedia Only":
+        filters["source"] = "wikipedia"
+    
+    # Album filter (only applies to lyrics)
+    if album_filter != "All" and source_filter != "Wikipedia Only":
+        filters["album_name"] = album_filter
+    
+    # Apply filters if any
+    if filters:
+        search_kwargs["filter"] = filters
     
     if use_mmr:
         return vector_store.as_retriever(
@@ -370,32 +420,45 @@ def get_retriever(album_filter: str, k: int, use_mmr: bool, score_threshold: flo
 # =============================================================================
 # 6. SYSTEM PROMPT & CHAIN SETUP (Using LCEL)
 # =============================================================================
-SYSTEM_PROMPT = """You are a passionate Taylor Swift expert and lyric analyst. Your role is to help fans explore Taylor's discography by answering questions using the retrieved lyrics provided below.
+SYSTEM_PROMPT = """You are a passionate Taylor Swift expert with comprehensive knowledge of both her music AND her life story. Your role is to help fans explore Taylor's world by answering questions using the retrieved content provided below.
+
+The context may include:
+- **Lyrics** from Taylor's songs (with track and album info)
+- **Wikipedia biography** content about her life, career, achievements, and history
 
 ## How to respond:
-- Ground your answers in the specific lyrics provided in the context
+
+### For LYRICS questions:
 - Quote relevant lyrics directly using quotation marks
 - Always cite the song title and album in parentheses, e.g., (All Too Well, Red)
+- Analyze themes, metaphors, and storytelling techniques
 - Connect themes across songs when relevant
-- Match Taylor's storytelling energy—be vivid and emotionally resonant
-- If discussing songwriting craft, analyze rhyme schemes, metaphors, and narrative techniques
+
+### For BIOGRAPHY/LIFE questions:
+- Draw from the Wikipedia content to discuss her career, achievements, relationships, tours, etc.
+- Be factual and informative about dates, events, and milestones
+- Connect biographical events to her music when relevant
+
+### For questions that span BOTH:
+- Weave together lyrics and biography naturally
+- Show how her life experiences influenced her songwriting
+- Reference specific songs that relate to life events
 
 ## Handling limitations:
-- If the retrieved lyrics don't contain relevant information, acknowledge this honestly with a playful Taylor reference (e.g., "I knew you were trouble when you asked that—these lyrics don't quite cover it!")
-- Never invent or hallucinate lyrics that aren't in the provided context
-- If a question is ambiguous, ask for clarification about which era or theme they mean
-- If asked about something outside Taylor Swift's music, gently redirect to relevant lyrics
+- If the retrieved content doesn't contain relevant information, acknowledge this honestly
+- Never invent lyrics or biographical facts that aren't in the provided context
+- If asked about very recent events not in the context, mention your knowledge may not be current
 
 ## Tone:
-- Enthusiastic but not over-the-top
+- Enthusiastic but accurate
+- Warm and welcoming to all fans
 - Analytical when discussing songwriting craft
-- Warm and welcoming to all fans, whether casual listeners or vault-key holders
-- Use occasional Taylor-isms and references naturally (but don't force them)
+- Informative when discussing biography
 
 ## Formatting:
 - Use markdown for emphasis when quoting lyrics
 - Keep responses focused and avoid unnecessary padding
-- If multiple songs are relevant, organize your response clearly
+- Clearly distinguish between lyrics (use quotes) and biographical facts
 
 Context:
 {context}"""
@@ -408,13 +471,24 @@ prompt = ChatPromptTemplate.from_messages([
 @st.cache_resource
 def get_llm():
     """Initialize and cache the LLM."""
-    return ChatOpenAI(model_name="gpt-4o-mini", temperature=0.7)
+    # Using gpt-4o for best quality responses
+    # Alternative: "gpt-4o-mini" for lower cost
+    return ChatOpenAI(model_name="gpt-4o", temperature=0.7)
 
 llm = get_llm()
 
 def format_docs(docs):
-    """Format retrieved documents into a single string."""
-    return "\n\n".join(doc.page_content for doc in docs)
+    """Format retrieved documents into a single string with source indicators."""
+    formatted = []
+    for doc in docs:
+        source = doc.metadata.get('source', 'unknown')
+        if source == 'lyrics':
+            track = doc.metadata.get('track_name', 'Unknown')
+            album = doc.metadata.get('album_name', 'Unknown')
+            formatted.append(f"[LYRICS - {track} from {album}]\n{doc.page_content}")
+        else:  # wikipedia
+            formatted.append(f"[WIKIPEDIA BIOGRAPHY]\n{doc.page_content}")
+    return "\n\n---\n\n".join(formatted)
 
 def run_rag_query(question: str, retriever):
     """Run the RAG query and return both the answer and source documents."""
@@ -424,11 +498,19 @@ def run_rag_query(question: str, retriever):
     # Store sources for later display
     sources = []
     for doc in docs:
-        sources.append({
-            "track": doc.metadata.get('track_name', 'Unknown Track'),
-            "album": doc.metadata.get('album_name', 'Unknown Album'),
-            "lyrics": doc.page_content
-        })
+        source_type = doc.metadata.get('source', 'unknown')
+        if source_type == 'lyrics':
+            sources.append({
+                "type": "lyrics",
+                "track": doc.metadata.get('track_name', 'Unknown Track'),
+                "album": doc.metadata.get('album_name', 'Unknown Album'),
+                "content": doc.page_content
+            })
+        else:  # wikipedia
+            sources.append({
+                "type": "wikipedia",
+                "content": doc.page_content
+            })
     
     # Format context
     context = format_docs(docs)
@@ -453,8 +535,10 @@ if not st.session_state.messages:
     <div style="text-align: center; padding: 3rem; color: #6b7280;">
         <p style="font-size: 3rem; margin-bottom: 1rem;">💫</p>
         <h3 style="color: #ec4899;">Welcome to the Vault!</h3>
-        <p style="color: #6b7280;">Ask me anything about Taylor Swift's lyrics, or click a theme button below to get started.</p>
-        <p style="font-size: 0.85rem; margin-top: 1rem; color: #9ca3af;">Try: "What songs mention rain?" or "Tell me about songs with autumn imagery"</p>
+        <p style="color: #6b7280;">Ask me anything about Taylor Swift's lyrics <b>and</b> her life story!</p>
+        <p style="font-size: 0.85rem; margin-top: 1rem; color: #9ca3af;">
+            Try: "What songs mention rain?" • "When did Taylor win her first Grammy?" • "How did her Nashville move influence her early music?"
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -467,8 +551,12 @@ for message in st.session_state.messages:
         if message["role"] == "assistant" and "sources" in message and message["sources"]:
             with st.expander("📚 View Sources", expanded=False):
                 for source in message["sources"]:
-                    st.markdown(f"**🎵 {source['track']}** ({source['album']})")
-                    st.caption(source['lyrics'][:500] + "..." if len(source['lyrics']) > 500 else source['lyrics'])
+                    if source.get("type") == "lyrics":
+                        st.markdown(f"**🎵 {source['track']}** ({source['album']}) `lyrics`")
+                        st.caption(source['content'][:500] + "..." if len(source['content']) > 500 else source['content'])
+                    else:  # wikipedia
+                        st.markdown(f"**📖 Wikipedia Biography** `wiki`")
+                        st.caption(source['content'][:500] + "..." if len(source['content']) > 500 else source['content'])
                     st.markdown("---")
 
 # =============================================================================
@@ -484,9 +572,9 @@ theme_cols = st.columns(7)
 themes = [
     ("💔", "Heartbreak"),
     ("🗽", "New York"),
-    ("🍂", "Autumn"),
+    ("🏆", "Awards"),
     ("✨", "Love"),
-    ("😈", "Revenge"),
+    ("🎸", "Career"),
     ("🌙", "Night"),
     ("🎲", "Surprise!"),
 ]
@@ -502,6 +590,11 @@ for i, (emoji, theme) in enumerate(themes):
                     "sources": []
                 })
                 st.rerun()
+        elif theme in ["Awards", "Career"]:
+            # These themes search Wikipedia
+            if st.button(f"{emoji} {theme}", key=f"theme_{theme}", use_container_width=True):
+                st.session_state.pending_query = f"Tell me about Taylor Swift's {theme.lower()}"
+                st.rerun()
         else:
             if st.button(f"{emoji} {theme}", key=f"theme_{theme}", use_container_width=True):
                 st.session_state.pending_query = f"What does Taylor say about {theme.lower()}?"
@@ -510,7 +603,7 @@ for i, (emoji, theme) in enumerate(themes):
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Chat input at the very bottom
-user_input = st.chat_input("Ask about Taylor's lyrics...")
+user_input = st.chat_input("Ask about Taylor's lyrics or life...")
 
 # Check for pending query from theme buttons
 if st.session_state.pending_query:
@@ -528,10 +621,11 @@ if user_input:
     
     # Generate response
     with st.chat_message("assistant"):
-        with st.spinner("Searching the vault... 🔐"):
+        with st.spinner("Searching the vault... 🔍"):
             # Get retriever with current settings
             retriever = get_retriever(
                 album_filter=st.session_state.selected_era,
+                source_filter=st.session_state.selected_source,
                 k=st.session_state.num_sources,
                 use_mmr=use_mmr,
                 score_threshold=st.session_state.similarity_threshold
@@ -547,8 +641,12 @@ if user_input:
             if sources:
                 with st.expander("📚 View Sources", expanded=False):
                     for source in sources:
-                        st.markdown(f"**🎵 {source['track']}** ({source['album']})")
-                        st.caption(source['lyrics'][:500] + "..." if len(source['lyrics']) > 500 else source['lyrics'])
+                        if source.get("type") == "lyrics":
+                            st.markdown(f"**🎵 {source['track']}** ({source['album']}) `lyrics`")
+                            st.caption(source['content'][:500] + "..." if len(source['content']) > 500 else source['content'])
+                        else:  # wikipedia
+                            st.markdown(f"**📖 Wikipedia Biography** `wiki`")
+                            st.caption(source['content'][:500] + "..." if len(source['content']) > 500 else source['content'])
                         st.markdown("---")
             
             # Add assistant message to history
