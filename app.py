@@ -77,9 +77,9 @@ st.markdown("""
     /* Import a nice font */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
     
-    /* Main app styling - light theme for readability */
+    /* Main app styling - dark theme (Midnights aesthetic) */
     .stApp {
-        background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
         font-family: 'Poppins', sans-serif;
     }
     
@@ -90,26 +90,27 @@ st.markdown("""
         left: 0;
         right: 0;
         z-index: 1000;
-        background: linear-gradient(90deg, #ec4899 0%, #f43f5e 100%);
+        background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
         padding: 1rem 2rem;
-        box-shadow: 0 4px 20px rgba(236, 72, 153, 0.3);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 0.75rem;
+        border-bottom: 1px solid #475569;
     }
     
     .fixed-header h1 {
-        color: white !important;
+        color: #e2e8f0 !important;
         font-size: 1.75rem !important;
         font-weight: 700 !important;
         margin: 0 !important;
         padding: 0 !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
     }
     
     .fixed-header .subtitle {
-        color: rgba(255,255,255,0.9);
+        color: rgba(148, 163, 184, 0.9);
         font-size: 0.9rem;
         margin-left: 1rem;
     }
@@ -122,42 +123,43 @@ st.markdown("""
     
     /* Chat message styling */
     .stChatMessage {
-        background: white !important;
+        background: #1e293b !important;
         border-radius: 12px !important;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05) !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
         margin-bottom: 1rem !important;
+        border: 1px solid #334155 !important;
     }
     
     /* Better text contrast */
     .stMarkdown, .stChatMessage p, .stChatMessage div {
-        color: #1f2937 !important;
+        color: #e2e8f0 !important;
     }
     
     h1, h2, h3, h4 {
-        color: #831843 !important;
+        color: #94a3b8 !important;
     }
     
     /* Sidebar styling */
     section[data-testid="stSidebar"] {
-        background: white !important;
-        border-right: 2px solid #fce7f3;
+        background: #1e293b !important;
+        border-right: 1px solid #334155;
     }
     
     section[data-testid="stSidebar"] .stMarkdown {
-        color: #374151 !important;
+        color: #cbd5e1 !important;
     }
     
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
-        color: #ec4899 !important;
+        color: #94a3b8 !important;
     }
     
     /* Button styling */
     .stButton > button {
-        background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
-        color: white;
-        border: none;
+        background: linear-gradient(135deg, #475569 0%, #64748b 100%);
+        color: #e2e8f0;
+        border: 1px solid #64748b;
         border-radius: 20px;
         padding: 0.5rem 1rem;
         font-weight: 600;
@@ -166,39 +168,40 @@ st.markdown("""
     
     .stButton > button:hover {
         transform: scale(1.02);
-        box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+        box-shadow: 0 4px 15px rgba(100, 116, 139, 0.4);
+        background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
     }
     
     /* Source expander styling */
     .streamlit-expanderHeader {
-        background: #fdf2f8 !important;
+        background: #334155 !important;
         border-radius: 8px !important;
-        color: #831843 !important;
+        color: #cbd5e1 !important;
     }
     
     .streamlit-expanderContent {
-        background: white !important;
-        border: 1px solid #fce7f3 !important;
-        color: #374151 !important;
+        background: #1e293b !important;
+        border: 1px solid #475569 !important;
+        color: #cbd5e1 !important;
     }
     
     /* Slider styling */
     .stSlider > div > div {
-        background: #fce7f3 !important;
+        background: #334155 !important;
     }
     
     .stSlider > div > div > div {
-        background: #ec4899 !important;
+        background: #64748b !important;
     }
     
     /* Chat input styling */
     .stChatInput {
-        border-color: #ec4899 !important;
+        border-color: #475569 !important;
     }
     
     .stChatInput > div {
-        border-color: #fce7f3 !important;
-        background: white !important;
+        border-color: #475569 !important;
+        background: #1e293b !important;
     }
     
     /* Hide default header elements */
@@ -208,36 +211,37 @@ st.markdown("""
     
     /* Metrics styling */
     [data-testid="stMetricValue"] {
-        color: #ec4899 !important;
+        color: #94a3b8 !important;
     }
     
     [data-testid="stMetricLabel"] {
-        color: #6b7280 !important;
+        color: #64748b !important;
     }
     
     /* Select box styling */
     .stSelectbox > div > div {
-        background: white !important;
-        border-color: #fce7f3 !important;
+        background: #1e293b !important;
+        border-color: #475569 !important;
+        color: #e2e8f0 !important;
     }
-    
+
     /* Checkbox styling */
     .stCheckbox label {
-        color: #374151 !important;
+        color: #cbd5e1 !important;
     }
     
     /* Theme buttons section styling */
     .theme-section {
-        background: white;
+        background: #1e293b;
         border-radius: 12px;
         padding: 1rem;
         margin-top: 1rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        border: 1px solid #fce7f3;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        border: 1px solid #334155;
     }
     
     .theme-section h5 {
-        color: #ec4899 !important;
+        color: #94a3b8 !important;
         margin-bottom: 0.5rem;
     }
     
@@ -245,26 +249,7 @@ st.markdown("""
     .streamlit-expanderContent p,
     .streamlit-expanderContent div,
     .streamlit-expanderContent span {
-        color: #374151 !important;
-    }
-    
-    /* Source type badges */
-    .source-badge-lyrics {
-        background: #ec4899;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        margin-left: 8px;
-    }
-    
-    .source-badge-wiki {
-        background: #3b82f6;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        margin-left: 8px;
+        color: #cbd5e1 !important;
     }
 </style>
 
@@ -671,4 +656,5 @@ if user_input:
                 "content": answer,
                 "sources": sources
             })
+
 
