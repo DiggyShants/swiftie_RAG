@@ -71,48 +71,52 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for fixed header, sticky footer, and better contrast
+# Custom CSS - TTPD-Inspired Dark Theme
+# Replace everything from line 69 through line 245 in your app.py
+
 st.markdown("""
 <style>
-    /* Import a nice font */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+    /* Import fonts - using a more poetic font pairing */
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
     
-    /* Main app styling - dark theme (Midnights aesthetic) */
+    /* Main app styling - TTPD dark aesthetic */
     .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
-        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2926 50%, #1a1a1a 100%);
+        font-family: 'Inter', sans-serif;
     }
     
-    /* Fixed Header */
+    /* Fixed Header - muted taupe/charcoal */
     .fixed-header {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         z-index: 1000;
-        background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
+        background: linear-gradient(90deg, #2d2926 0%, #3d3a36 100%);
         padding: 1rem 2rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 0.75rem;
-        border-bottom: 1px solid #475569;
+        border-bottom: 1px solid #4a4640;
     }
     
     .fixed-header h1 {
-        color: #e2e8f0 !important;
-        font-size: 1.75rem !important;
-        font-weight: 700 !important;
+        color: #f5f0e8 !important;
+        font-family: 'Cormorant Garamond', serif !important;
+        font-size: 1.9rem !important;
+        font-weight: 600 !important;
         margin: 0 !important;
         padding: 0 !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        letter-spacing: 0.05em;
     }
     
     .fixed-header .subtitle {
-        color: rgba(148, 163, 184, 0.9);
+        color: #b8b0a4;
         font-size: 0.9rem;
         margin-left: 1rem;
+        font-style: italic;
     }
     
     /* Add padding to main content to account for fixed header */
@@ -123,85 +127,107 @@ st.markdown("""
     
     /* Chat message styling */
     .stChatMessage {
-        background: #1e293b !important;
+        background: #2d2926 !important;
         border-radius: 12px !important;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3) !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.4) !important;
         margin-bottom: 1rem !important;
-        border: 1px solid #334155 !important;
+        border: 1px solid #3d3a36 !important;
     }
     
-    /* Better text contrast */
+    /* Text colors - warm ivory tones */
     .stMarkdown, .stChatMessage p, .stChatMessage div {
-        color: #e2e8f0 !important;
+        color: #f5f0e8 !important;
     }
     
     h1, h2, h3, h4 {
-        color: #94a3b8 !important;
+        color: #d4cdc4 !important;
+        font-family: 'Cormorant Garamond', serif !important;
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling - FIXED CONTRAST */
     section[data-testid="stSidebar"] {
-        background: #1e293b !important;
-        border-right: 1px solid #334155;
+        background: #252220 !important;
+        border-right: 1px solid #3d3a36;
     }
     
     section[data-testid="stSidebar"] .stMarkdown {
-        color: #cbd5e1 !important;
+        color: #e8e0d8 !important;
     }
     
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
-        color: #94a3b8 !important;
+        color: #d4cdc4 !important;
     }
     
-    /* Button styling */
+    /* FIX: Make sidebar labels readable */
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stSlider label,
+    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
+        color: #c8c0b8 !important;
+    }
+    
+    /* FIX: Slider label text */
+    .stSlider label {
+        color: #c8c0b8 !important;
+    }
+    
+    /* Button styling - muted taupe */
     .stButton > button {
-        background: linear-gradient(135deg, #475569 0%, #64748b 100%);
-        color: #e2e8f0;
-        border: 1px solid #64748b;
+        background: linear-gradient(135deg, #4a4640 0%, #5a554e 100%);
+        color: #f5f0e8;
+        border: 1px solid #6a645c;
         border-radius: 20px;
         padding: 0.5rem 1rem;
-        font-weight: 600;
+        font-weight: 500;
         transition: all 0.3s ease;
     }
     
     .stButton > button:hover {
         transform: scale(1.02);
-        box-shadow: 0 4px 15px rgba(100, 116, 139, 0.4);
-        background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%);
+        box-shadow: 0 4px 15px rgba(90, 85, 78, 0.4);
+        background: linear-gradient(135deg, #5a554e 0%, #6a645c 100%);
     }
     
     /* Source expander styling */
     .streamlit-expanderHeader {
-        background: #334155 !important;
+        background: #3d3a36 !important;
         border-radius: 8px !important;
-        color: #cbd5e1 !important;
+        color: #e8e0d8 !important;
     }
     
     .streamlit-expanderContent {
-        background: #1e293b !important;
-        border: 1px solid #475569 !important;
-        color: #cbd5e1 !important;
+        background: #2d2926 !important;
+        border: 1px solid #4a4640 !important;
+        color: #e8e0d8 !important;
     }
     
-    /* Slider styling */
+    /* Slider styling - warm taupe accent */
     .stSlider > div > div {
-        background: #334155 !important;
+        background: #3d3a36 !important;
     }
     
     .stSlider > div > div > div {
-        background: #64748b !important;
+        background: #8a8078 !important;
+    }
+    
+    /* Slider thumb/handle */
+    .stSlider [data-testid="stThumbValue"] {
+        color: #f5f0e8 !important;
     }
     
     /* Chat input styling */
     .stChatInput {
-        border-color: #475569 !important;
+        border-color: #4a4640 !important;
     }
     
     .stChatInput > div {
-        border-color: #475569 !important;
-        background: #1e293b !important;
+        border-color: #4a4640 !important;
+        background: #2d2926 !important;
+    }
+    
+    .stChatInput input {
+        color: #f5f0e8 !important;
     }
     
     /* Hide default header elements */
@@ -211,37 +237,41 @@ st.markdown("""
     
     /* Metrics styling */
     [data-testid="stMetricValue"] {
-        color: #94a3b8 !important;
+        color: #d4cdc4 !important;
     }
     
     [data-testid="stMetricLabel"] {
-        color: #64748b !important;
+        color: #a8a098 !important;
     }
     
     /* Select box styling */
     .stSelectbox > div > div {
-        background: #1e293b !important;
-        border-color: #475569 !important;
-        color: #e2e8f0 !important;
+        background: #2d2926 !important;
+        border-color: #4a4640 !important;
+        color: #f5f0e8 !important;
+    }
+    
+    .stSelectbox label {
+        color: #c8c0b8 !important;
     }
 
     /* Checkbox styling */
     .stCheckbox label {
-        color: #cbd5e1 !important;
+        color: #e8e0d8 !important;
     }
     
     /* Theme buttons section styling */
     .theme-section {
-        background: #1e293b;
+        background: #2d2926;
         border-radius: 12px;
         padding: 1rem;
         margin-top: 1rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        border: 1px solid #334155;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        border: 1px solid #3d3a36;
     }
     
     .theme-section h5 {
-        color: #94a3b8 !important;
+        color: #d4cdc4 !important;
         margin-bottom: 0.5rem;
     }
     
@@ -249,7 +279,27 @@ st.markdown("""
     .streamlit-expanderContent p,
     .streamlit-expanderContent div,
     .streamlit-expanderContent span {
-        color: #cbd5e1 !important;
+        color: #e8e0d8 !important;
+    }
+    
+    /* Additional label fixes for all form elements */
+    .stTextInput label,
+    .stNumberInput label,
+    .stTextArea label,
+    .stDateInput label,
+    .stTimeInput label,
+    .stFileUploader label {
+        color: #c8c0b8 !important;
+    }
+    
+    /* Info/help text */
+    .stTooltipIcon {
+        color: #8a8078 !important;
+    }
+    
+    /* Divider/horizontal rule */
+    hr {
+        border-color: #3d3a36 !important;
     }
 </style>
 
@@ -533,15 +583,13 @@ def run_rag_query(question: str, retriever):
 # Welcome message (if no messages yet)
 if not st.session_state.messages:
     st.markdown("""
-    <div style="text-align: center; padding: 3rem; color: #6b7280;">
-        <p style="font-size: 3rem; margin-bottom: 1rem;">💫</p>
-        <h3 style="color: #ec4899;">Welcome to the Vault!</h3>
-        <p style="color: #6b7280;">Ask me anything about Taylor Swift's lyrics <b>and</b> her life story!</p>
-        <p style="font-size: 0.85rem; margin-top: 1rem; color: #9ca3af;">
-            Try: "What songs mention rain?" • "When did Taylor win her first Grammy?" • "How did her Nashville move influence her early music?"
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+<div style="text-align: center; padding: 3rem; color: #d4cdc4;">
+    <p style="font-size: 3rem; margin-bottom: 1rem;">💫</p>
+    <h3 style="color: #d4cdc4;">Welcome to the Vault!</h3>
+    <p style="color: #a8a098;">Ask me anything about Taylor Swift's lyrics...</p>
+    <p style="font-size: 0.85rem; margin-top: 1rem; color: #8a8078;">Try: "What songs mention rain?"...</p>
+</div>
+""", unsafe_allow_html=True)
 
 # Display chat history
 for message in st.session_state.messages:
@@ -656,5 +704,6 @@ if user_input:
                 "content": answer,
                 "sources": sources
             })
+
 
 
