@@ -8,7 +8,7 @@ langchain-openai>=0.2.0
 langchain-pinecone>=0.2.0
 
 # Vector Store
-pinecone-client>=3.0.0
+pinecone>=3.0.0
 
 # Environment Management
 python-dotenv>=1.0.0
@@ -18,3 +18,4 @@ openai>=1.12.0
 
 # Tiktoken for token counting
 tiktoken>=0.6.0
+
